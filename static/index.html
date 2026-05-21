@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sage &mdash; AI Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: #1d1d1f;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    header .logo { font-size: 1.5rem; }
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+    header p  { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .bubble {
+      max-width: 72%;
+      padding: 0.75rem 1.1rem;
+      border-radius: 16px;
+      line-height: 1.55;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.user {
+      align-self: flex-end;
+      background: #1a1a2e;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.assistant {
+      align-self: flex-start;
+      background: #fff;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .bubble.typing {
+      align-self: flex-start;
+      background: #fff;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      color: #888;
+      font-style: italic;
+    }
+
+    #input-row {
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      padding: 0.9rem 1.2rem;
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+    }
+    #msg {
+      flex: 1;
+      border: 1.5px solid #d0d0d0;
+      border-radius: 24px;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+      font-family: inherit;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    #msg:focus { border-color: #1a1a2e; }
+    #send {
+      background: #1a1a2e;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+    #send:hover { opacity: 0.82; }
+    #send:disabled { opacity: 0.35; cursor: not-allowed; }
+    #clear-btn {
+      background: none;
+      border: 1px solid #d0d0d0;
+      border-radius: 20px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      color: #555;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    #clear-btn:hover { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">&#129504;</span>
+  <div>
+    <h1>Sage</h1>
+    <p>AI Assistant powered by Claude</p>
+  </div>
+</header>
+
+<div id="chat"></div>
+
+<div id="input-row">
+  <textarea id="msg" rows="1" placeholder="Ask me anything&hellip;"></textarea>
+  <button id="clear-btn">New chat</button>
+  <button id="send">&#8593;</button>
+</div>
+
+<script>
+  const sessionId = crypto.randomUUID();
+  const chatEl   = document.getElementById('chat');
+  const msgEl    = document.getElementById('msg');
+  const sendBtn  = document.getElementById('send');
+  const clearBtn = document.getElementById('clear-btn');
+
+  function addBubble(role, text) {
+    const div = document.createElement('div');
+    div.className = `bubble ${role}`;
+    div.textContent = text;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    return div;
+  }
+
+  addBubble('assistant', 'Hi! I\'m Sage. Ask me anything — I\'m here to help you learn, think, or explore ideas.');
+
+  async function send() {
+    const text = msgEl.value.trim();
+    if (!text) return;
+
+    msgEl.value = '';
+    msgEl.style.height = 'auto';
+    sendBtn.disabled = true;
+    addBubble('user', text);
+
+    const typing = addBubble('typing', 'Sage is thinking…');
+
+    try {
+      const res  = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, message: text }),
+      });
+      const data = await res.json();
+      typing.remove();
+      if (!res.ok) throw new Error(data.detail || 'Error');
+      addBubble('assistant', data.response);
+    } catch (err) {
+      typing.remove();
+      addBubble('assistant', `Sorry, something went wrong: ${err.message}`);
+    } finally {
+      sendBtn.disabled = false;
+      msgEl.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', send);
+  msgEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  msgEl.addEventListener('input', () => {
+    msgEl.style.height = 'auto';
+    msgEl.style.height = msgEl.scrollHeight + 'px';
+  });
+
+  clearBtn.addEventListener('click', async () => {
+    await fetch('/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    chatEl.innerHTML = '';
+    addBubble('assistant', 'Conversation cleared. What would you like to explore next?');
+  });
+</script>
+</body>
+</html>
