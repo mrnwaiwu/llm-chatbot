@@ -28,6 +28,16 @@
     header .logo { font-size: 1.5rem; }
     header h1 { font-size: 1.15rem; font-weight: 700; }
     header p  { font-size: 0.78rem; opacity: 0.65; margin-top: 1px; }
+    .badge {
+      margin-left: auto;
+      background: #16213e;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.72rem;
+      opacity: 0.85;
+      letter-spacing: 0.03em;
+    }
 
     #chat {
       flex: 1;
@@ -42,7 +52,7 @@
       max-width: 72%;
       padding: 0.75rem 1.1rem;
       border-radius: 16px;
-      line-height: 1.55;
+      line-height: 1.6;
       font-size: 0.95rem;
       white-space: pre-wrap;
       word-break: break-word;
@@ -59,14 +69,15 @@
       border-bottom-left-radius: 4px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.1);
     }
-    .bubble.typing {
-      align-self: flex-start;
-      background: #fff;
-      border-bottom-left-radius: 4px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      color: #888;
-      font-style: italic;
+    /* blinking cursor while streaming */
+    .bubble.streaming::after {
+      content: '|';
+      display: inline-block;
+      animation: blink 0.7s step-end infinite;
+      margin-left: 2px;
+      color: #555;
     }
+    @keyframes blink { 50% { opacity: 0; } }
 
     #input-row {
       background: #fff;
@@ -74,7 +85,7 @@
       padding: 0.9rem 1.2rem;
       display: flex;
       gap: 0.65rem;
-      align-items: center;
+      align-items: flex-end;
     }
     #msg {
       flex: 1;
@@ -88,6 +99,7 @@
       font-family: inherit;
       max-height: 120px;
       overflow-y: auto;
+      line-height: 1.5;
     }
     #msg:focus { border-color: #1a1a2e; }
     #send {
@@ -111,12 +123,13 @@
       background: none;
       border: 1px solid #d0d0d0;
       border-radius: 20px;
-      padding: 0.35rem 0.85rem;
+      padding: 0.4rem 0.9rem;
       font-size: 0.82rem;
       cursor: pointer;
       color: #555;
       white-space: nowrap;
       transition: background 0.15s;
+      flex-shrink: 0;
     }
     #clear-btn:hover { background: #f0f0f0; }
   </style>
@@ -129,6 +142,7 @@
     <h1>Sage</h1>
     <p>AI Assistant powered by Claude</p>
   </div>
+  <span class="badge">&#9679; Streaming</span>
 </header>
 
 <div id="chat"></div>
@@ -146,7 +160,7 @@
   const sendBtn  = document.getElementById('send');
   const clearBtn = document.getElementById('clear-btn');
 
-  function addBubble(role, text) {
+  function addBubble(role, text = '') {
     const div = document.createElement('div');
     div.className = `bubble ${role}`;
     div.textContent = text;
@@ -166,22 +180,47 @@
     sendBtn.disabled = true;
     addBubble('user', text);
 
-    const typing = addBubble('typing', 'Sage is thinking…');
+    // Create the assistant bubble immediately and stream into it
+    const assistantBubble = addBubble('assistant');
+    assistantBubble.classList.add('streaming');
 
     try {
-      const res  = await fetch('/chat', {
+      const res = await fetch('/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId, message: text }),
       });
-      const data = await res.json();
-      typing.remove();
-      if (!res.ok) throw new Error(data.detail || 'Error');
-      addBubble('assistant', data.response);
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Request failed');
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = JSON.parse(line.slice(6));
+          if (payload.text) {
+            assistantBubble.textContent += payload.text;
+            chatEl.scrollTop = chatEl.scrollHeight;
+          }
+        }
+      }
     } catch (err) {
-      typing.remove();
-      addBubble('assistant', `Sorry, something went wrong: ${err.message}`);
+      assistantBubble.textContent = `Sorry, something went wrong: ${err.message}`;
     } finally {
+      assistantBubble.classList.remove('streaming');
       sendBtn.disabled = false;
       msgEl.focus();
     }
