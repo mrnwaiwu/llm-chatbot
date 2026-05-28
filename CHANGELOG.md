@@ -4,6 +4,10 @@
 - Planned: conversation history persistence
 - Planned: support for multiple Claude model versions
 
+## [1.2.0] - 2026-05-28
+- Minor improvements to token handling and error recovery
+- Improved prompt sanitization for safety
+
 ## [1.1.0] - 2026-05-25
 - Added streaming responses via SSE
 - Updated browser UI to render streamed tokens in real time
