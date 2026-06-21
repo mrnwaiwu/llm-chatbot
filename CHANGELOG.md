@@ -4,6 +4,10 @@
 - Planned: conversation history persistence
 - Planned: support for multiple Claude model versions
 
+## [1.2.3] - 2026-06-21
+- Minor improvements to session cleanup logging
+- Small fixes to token usage reporting edge cases
+
 ## [1.2.2] - 2026-06-14
 - Improved token usage logging for cost tracking
 - Fixed null reference in session cleanup on idle timeout
