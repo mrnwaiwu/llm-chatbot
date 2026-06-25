@@ -4,6 +4,11 @@
 - Planned: conversation history persistence
 - Planned: support for multiple Claude model versions
 
+## [1.2.4] - 2026-06-25
+- Improved error handling in streaming SSE responses for dropped connections
+- Added per-session token budget enforcement with configurable hard limits
+- Fixed edge case in token counting when system prompt contains special characters
+
 ## [1.2.3] - 2026-06-21
 - Minor improvements to session cleanup logging
 - Small fixes to token usage reporting edge cases
