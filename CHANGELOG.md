@@ -4,6 +4,12 @@
 - Planned: conversation history persistence
 - Planned: support for multiple Claude model versions
 
+## [1.2.5] - 2026-06-28
+- Added support for conversation tagging to organize chat sessions by topic
+- Improved token estimation accuracy for multi-turn context windows
+- Fixed memory leak in session manager when idle sessions were pruned concurrently
+- Added configurable system prompt override per session via API parameter
+
 ## [1.2.4] - 2026-06-25
 - Improved error handling in streaming SSE responses for dropped connections
 - Added per-session token budget enforcement with configurable hard limits
